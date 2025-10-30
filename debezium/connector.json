@@ -1,0 +1,35 @@
+{
+  "name": "crm-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "slot.name": "debezium",
+    "plugin.name": "pgoutput",
+
+    "database.hostname": "crm_db",
+    "database.port": "5432",
+    "database.user": "crm",
+    "database.password": "crm",
+    "database.dbname": "crmdb",
+    "database.server.name": "crm",
+
+    "schema.include.list": "public",
+    "table.include.list": "public.customers,public.orders",
+
+    "tombstones.on.delete": "false",
+    "decimal.handling.mode": "string",
+
+    "transforms": "unwrap,route",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "true",
+    "transforms.unwrap.delete.handling.mode": "rewrite",
+    "transforms.unwrap.add.fields": "op,source.ts_ms",
+
+    "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.route.regex": "(.*)",
+    "transforms.route.replacement": "$1.flat",
+
+    "key.converter.schemas.enable": "false",
+    "value.converter.schemas.enable": "false"
+  }
+}

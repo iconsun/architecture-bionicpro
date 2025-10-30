@@ -1,0 +1,45 @@
+dn: ou=people,dc=bionicpro,dc=local
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=bionicpro,dc=local
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=ivan.petrov,ou=people,dc=bionicpro,dc=local
+objectClass: inetOrgPerson
+cn: Ivan Petrov
+sn: Petrov
+givenName: Ivan
+uid: ivan.petrov
+mail: ivan.petrov@bionicpro.local
+userPassword: password123
+
+dn: uid=maria.sidorova,ou=people,dc=bionicpro,dc=local
+objectClass: inetOrgPerson
+cn: Maria Sidorova
+sn: Sidorova
+givenName: Maria
+uid: maria.sidorova
+mail: maria.sidorova@bionicpro.local
+userPassword: password123
+
+dn: cn=ru_report_viewers,ou=groups,dc=bionicpro,dc=local
+objectClass: groupOfNames
+cn: ru_report_viewers
+member: uid=ivan.petrov,ou=people,dc=bionicpro,dc=local
+
+dn: cn=ru_report_admins,ou=groups,dc=bionicpro,dc=local
+objectClass: groupOfNames
+cn: ru_report_admins
+member: uid=maria.sidorova,ou=people,dc=bionicpro,dc=local
+
+dn: cn=de_report_viewers,ou=groups,dc=bionicpro,dc=local
+objectClass: groupOfNames
+cn: de_report_viewers
+member: uid=ivan.petrov,ou=people,dc=bionicpro,dc=local
+
+dn: cn=de_report_admins,ou=groups,dc=bionicpro,dc=local
+objectClass: groupOfNames
+cn: de_report_admins
+member: uid=maria.sidorova,ou=people,dc=bionicpro,dc=local

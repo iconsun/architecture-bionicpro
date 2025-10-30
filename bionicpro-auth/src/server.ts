@@ -6,6 +6,9 @@ import Redis from 'ioredis';
 import axios from 'axios';
 import crypto from 'crypto';
 import { nanoid } from 'nanoid';
+import { yandexUserinfoProxy } from './yandexUserinfoProxy';
+
+
 
 function parseSameSite(v?: string): boolean | 'lax' | 'strict' | 'none' | undefined {
   if (!v) return 'strict';
@@ -40,6 +43,34 @@ const {
 const app = express();
 app.use(cookieParser());
 app.use(express.json());
+app.use(yandexUserinfoProxy);
+
+// ——— SAFETY IMPORTS: dist → src fallback ———
+function requireAny(p: string) {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const m = require(p);
+  return m.default ?? m;
+}
+function safeRouter(distPath: string, srcPath: string) {
+  try {
+    return requireAny(distPath); // сначала пробуем dist (./api/… относительно dist/server.js)
+  } catch {
+    return requireAny(srcPath);  // если нет — берём исходник из /app/src/…
+  }
+}
+
+app.use(
+  "/api/reports",
+  safeRouter("./api/reports", "../src/api/reports")
+);
+
+app.use(
+  "/api/ping",
+  safeRouter("./api/ping", "../src/api/ping")
+);
+
+
+
 
 // CORS для фронта + cookies
 app.use(cors({
@@ -47,7 +78,7 @@ app.use(cors({
   credentials: true
 }));
 
-const redis = new Redis(REDIS_URL);
+const redis = new Redis(process.env.REDIS_URL!);
 const ENC_KEY = Buffer.from(ENC_KEY_HEX!, 'hex');
 
 // --- утилиты шифрования refresh_token (AES-256-GCM) ---
