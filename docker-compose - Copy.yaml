@@ -35,9 +35,9 @@ services:
       KC_DB_PASSWORD: keycloak_password
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_LOG_LEVEL: INFO
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-      KC_LOG_LEVEL: org.keycloak.broker.oidc:DEBUG,org.keycloak.events:DEBUG,org.keycloak.services:DEBUG
     command: ["start", "--http-enabled=true", "--hostname-strict=false"]
     ports:
       - "8080:8080"
@@ -51,39 +51,28 @@ services:
     restart: unless-stopped
 
   bionicpro-auth:
-    container_name: sprint9-bionicpro-auth-1
     image: sprint9-bionicpro-auth
-    restart: unless-stopped
-    networks:
-      - default
-    ports:
-      - "8081:8081"
-    environment:
-
-      KC_PUBLIC_AUTH:  http://localhost:8080/realms/bionicpro/protocol/openid-connect/auth
-      KC_LOGOUT_URL:   http://localhost:8080/realms/bionicpro/protocol/openid-connect/logout
-
-
-      KC_TOKEN_URL:    http://keycloak:8080/realms/bionicpro/protocol/openid-connect/token
-      KC_USERINFO_URL: http://keycloak:8080/realms/bionicpro/protocol/openid-connect/userinfo
-
-
-      OIDC_CLIENT_ID: bionicpro-auth
-      OIDC_CLIENT_SECRET: CHANGE_ME_SECRET
-
-
-      OIDC_REDIRECT_URI: http://localhost:8081/auth/callback
-
-
-      ALLOWED_ORIGINS: http://localhost:3000
-      PUBLIC_BASE_URL: http://localhost:8081
-
+    container_name: sprint9-bionicpro-auth-1
     depends_on:
       keycloak:
         condition: service_started
         required: true
-
-
+    environment:
+      KC_PUBLIC_AUTH: https://oauth.yandex.ru/authorize
+      KC_TOKEN_URL: https://oauth.yandex.ru/token
+      KC_USERINFO_URL: https://login.yandex.ru/info?format=json
+      ALLOWED_ORIGINS: http://localhost:3000
+      PUBLIC_BASE_URL: http://localhost:8081
+      KC_PUBLIC_BASE: http://localhost:8080/realms/bionicpro
+      KC_PUBLIC_LOGOUT: http://localhost:8080/realms/bionicpro/protocol/openid-connect/logout
+      KC_LOGOUT_URL: http://keycloak:8080/realms/bionicpro/protocol/openid-connect/logout
+      OIDC_CLIENT_ID: bionicpro-auth
+      OIDC_CLIENT_SECRET: CHANGE_ME_SECRET
+      OIDC_REDIRECT_URI: http://localhost:8081/auth/callback
+      OIDC_POST_LOGOUT_REDIRECT_URI: http://localhost:8081/logout/callback
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
 
 
   redis:
