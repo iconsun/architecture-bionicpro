@@ -1,0 +1,283 @@
+name: sprint9
+
+services:
+  keycloak_db:
+    image: postgres:14
+    container_name: sprint9-keycloak_db-1
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak_db
+      POSTGRES_USER: keycloak_user
+      POSTGRES_PASSWORD: keycloak_password
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak_user -d keycloak_db -h 127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:21.1
+    container_name: sprint9-keycloak-1
+    depends_on:
+      keycloak_db:
+        condition: service_healthy
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak_db
+      KC_DB_USERNAME: keycloak_user
+      KC_DB_PASSWORD: keycloak_password
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_LOG_LEVEL: INFO
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command: ["start", "--http-enabled=true", "--hostname-strict=false"]
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  frontend:
+    image: sprint9-frontend
+    container_name: sprint9-frontend-1
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  bionicpro-auth:
+    image: sprint9-bionicpro-auth
+    container_name: sprint9-bionicpro-auth-1
+    depends_on:
+      keycloak:
+        condition: service_started
+        required: true
+    environment:
+      KC_PUBLIC_AUTH: https://oauth.yandex.ru/authorize
+      KC_TOKEN_URL: https://oauth.yandex.ru/token
+      KC_USERINFO_URL: https://login.yandex.ru/info?format=json
+      ALLOWED_ORIGINS: http://localhost:3000
+      PUBLIC_BASE_URL: http://localhost:8081
+      KC_PUBLIC_BASE: http://localhost:8080/realms/bionicpro
+      KC_PUBLIC_LOGOUT: http://localhost:8080/realms/bionicpro/protocol/openid-connect/logout
+      KC_LOGOUT_URL: http://keycloak:8080/realms/bionicpro/protocol/openid-connect/logout
+      OIDC_CLIENT_ID: bionicpro-auth
+      OIDC_CLIENT_SECRET: CHANGE_ME_SECRET
+      OIDC_REDIRECT_URI: http://localhost:8081/auth/callback
+      OIDC_POST_LOGOUT_REDIRECT_URI: http://localhost:8081/logout/callback
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: sprint9-redis-1
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-09-22T00-33-43Z
+    container_name: sprint9-minio-1
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio12345
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    volumes:
+      - minio_data:/data
+
+  cdn:
+    image: nginx:1.27-alpine
+    container_name: sprint9-cdn-1
+    ports:
+      - "8083:80"
+    restart: unless-stopped
+
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: sprint9-openldap-1
+    environment:
+      LDAP_ORGANISATION: "BionicPRO"
+      LDAP_DOMAIN: "bionicpro.local"
+      LDAP_ADMIN_PASSWORD: admin
+    ports:
+      - "389:389"
+    restart: unless-stopped
+    volumes:
+      - openldap_data:/var/lib/ldap
+      - openldap_config:/etc/ldap/slapd.d
+
+  phpldapadmin:
+    image: osixia/phpldapadmin:0.9.0
+    container_name: sprint9-phpldapadmin-1
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: openldap
+    ports:
+      - "6443:80"
+    depends_on:
+      - openldap
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: sprint9-pgadmin-1
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    restart: unless-stopped
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+  airflow-db:
+    image: postgres:15
+    container_name: sprint9-airflow-db-1
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow -h 127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+
+  airflow-webserver:
+    image: apache/airflow:2.9.1
+    container_name: sprint9-airflow-webserver-1
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__WEBSERVER__RBAC: "True"
+      _PIP_ADDITIONAL_REQUIREMENTS: ""
+    command: webserver
+    ports:
+      - "8082:8080"
+    restart: unless-stopped
+
+  crm_db:
+    image: postgres:16-alpine
+    container_name: crm_db
+    environment:
+      POSTGRES_DB: crm
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: crm
+    ports:
+      - "5434:5432"
+    restart: unless-stopped
+    volumes:
+      - crm_db_data:/var/lib/postgresql/data
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: clickhouse
+    ports:
+      - "8123:8123"
+      - "9005:9000"
+    restart: unless-stopped
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    restart: unless-stopped
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://:9092,PLAINTEXT_HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    restart: unless-stopped
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  connect:
+    image: quay.io/debezium/connect:2.7.4.Final
+    container_name: connect
+    depends_on:
+      - kafka
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: "1"
+      CONFIG_STORAGE_TOPIC: connect-configs
+      OFFSET_STORAGE_TOPIC: connect-offsets
+      STATUS_STORAGE_TOPIC: connect-status
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+    ports:
+      - "8085:8083"
+    restart: unless-stopped
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: kafka-ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "8090:8080"
+    restart: unless-stopped
+
+  register-connector:
+    image: curlimages/curl:8.7.1
+    container_name: register-connector
+    depends_on:
+      - connect
+    command: ["/bin/sh","-lc","echo 'Waiting for Kafka Connect...' && sleep 5 && curl -sS -XGET http://connect:8083/connectors || true"]
+    restart: unless-stopped
+
+volumes:
+  keycloak_db_data:
+  redis_data:
+  minio_data:
+  openldap_data:
+  openldap_config:
+  pgadmin_data:
+  airflow_db_data:
+  crm_db_data:
+  clickhouse_data:
+  zookeeper_data:
+  kafka_data:

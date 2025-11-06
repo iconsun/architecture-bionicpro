@@ -1,0 +1,91 @@
+{
+  "realm": "bionicpro",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+
+
+  "accessTokenLifespan": 120,         
+  "ssoSessionIdleTimeout": 1800,      
+  "ssoSessionMaxLifespan": 28800,    
+
+
+  "internationalizationEnabled": false,
+
+
+  "defaultDefaultClientScopes": ["web-origins", "role_list", "profile", "email"],
+  "defaultOptionalClientScopes": ["address", "phone", "offline_access", "microprofile-jwt"],
+
+  "clients": [
+    {
+
+      "clientId": "bionicpro-auth",
+      "name": "BionicPRO Auth (BFF)",
+      "rootUrl": "",
+      "baseUrl": "",
+      "enabled": true,
+      "protocol": "openid-connect",
+
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "CHANGE_ME_SECRET", 
+
+      "standardFlowEnabled": true,   
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "bearerOnly": false,
+      "consentRequired": false,
+
+
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+
+     
+      "redirectUris": [
+        "http://localhost:8081/auth/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:8081"
+      ],
+
+
+      "defaultClientScopes": ["web-origins", "role_list", "profile", "email"],
+      "optionalClientScopes": ["address", "phone", "offline_access", "microprofile-jwt"]
+    },
+
+    {
+
+      "clientId": "reports-frontend",
+      "name": "Reports Frontend (SPA)",
+      "enabled": true,
+      "protocol": "openid-connect",
+
+      "publicClient": true,
+      "bearerOnly": false,
+      "consentRequired": false,
+
+      "standardFlowEnabled": true,   
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+
+      "redirectUris": [
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
+
+      "defaultClientScopes": ["web-origins", "role_list", "profile", "email"],
+      "optionalClientScopes": ["address", "phone", "offline_access", "microprofile-jwt"]
+    }
+  ]
+}
